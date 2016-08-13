@@ -67,8 +67,7 @@ override LDFLAGS       = -Wl,$(LDSECTION)
 OBJCOPY        = avr-objcopy
 OBJDUMP        = avr-objdump
 
-#all: mega diecimila zigduino
-all: zigduino
+all: sparrowv
 
 lilypad: TARGET = lilypad
 lilypad: CFLAGS += '-DMAX_TIME_COUNT=F_CPU>>1' '-DNUM_LED_FLASHES=3'
@@ -218,6 +217,23 @@ zigduino_isp: EFUSE = F5
 zigduino_isp: isp
 
 #zigduino-bootloader: zigduino
+
+atmega644rfr2: TARGET = atmega644rfr2
+atmega644rfr2: MCU_TARGET = atmega644rfr2
+atmega644rfr2: CFLAGS += '-DMAX_TIME_COUNT=F_CPU>>4' '-DNUM_LED_FLASHES=1' -DBAUD_RATE=57600 -Wall
+atmega644rfr2: AVR_FREQ = 16000000L 
+atmega644rfr2: LDSECTION  = --section-start=.text=0xe000
+atmega644rfr2: $(PROGRAM)_atmega644rfr2.hex
+
+sparrowv: atmega644rfr2
+
+sparrowv_isp: sparrowv
+sparrowv_isp: TARGET = atmega644rfr2
+sparrowv_isp: MCU_TARGET = atmega644rfr2
+sparrowv_isp: HFUSE = D8
+sparrowv_isp: LFUSE = F7
+sparrowv_isp: EFUSE = FD
+sparrowv_isp: isp
 
 isp: $(TARGET)
 	$(ISPFUSES)

@@ -6,6 +6,8 @@
 /*                                                        */
 /* ATmegaBOOT.c                                           */
 /*                                                        */
+/* 20160813: Added SparrowV                               */
+/*           by Dan Dragomir                              */
 /* 20100406: Added Zigduino                               */
 /*           by Pierce Nichols                            */
 /* 20090308: integrated Mega changes into main bootloader */
@@ -124,6 +126,8 @@ __fuse_t __fuse __attribute__((section (".fuse"))) =
 /* we just don't do anything for the MEGA and enter bootloader on reset anyway*/
 #elif defined __AVR_ATmega128RFA1__
 /* the Zigduino follows the MEGA pattern -- PN 100406 */
+#elif defined __AVR_ATmega644RFR2__
+/* the same for SPARROW */
 #else
 /* other ATmegas have only one UART, so only one pin is defined to enter bootloader */
 #define BL_DDR  DDRD
@@ -134,7 +138,7 @@ __fuse_t __fuse __attribute__((section (".fuse"))) =
 
 /* onboard LED is used to indicate, that the bootloader was entered (3x flashing) */
 /* if monitor functions are included, LED goes on after monitor was entered */
-#if defined __AVR_ATmega128__ || defined __AVR_ATmega1280__
+#if defined __AVR_ATmega128__ || defined __AVR_ATmega1280__ || defined __AVR_ATmega644RFR2__
 /* Onboard LED is connected to pin PB7 (e.g. Crumb128, PROBOmega128, Savvy128, Arduino Mega) */
 #define LED_DDR  DDRB
 #define LED_PORT PORTB
@@ -184,6 +188,11 @@ __fuse_t __fuse __attribute__((section (".fuse"))) =
 #elif defined __AVR_ATmega128RFA1__
 #define SIG2	0xa7
 #define SIG3	0x01
+#define PAGE_SIZE	0x80U	//128 words
+
+#elif defined __AVR_ATmega644RFR2__
+#define SIG2	0xa6
+#define SIG3	0x03
 #define PAGE_SIZE	0x80U	//128 words
 
 #elif defined __AVR_ATmega64__
@@ -352,6 +361,11 @@ int main(void)
 	bootuart = 1;
 #endif
 
+#ifdef __AVR_ATmega644RFR2__
+	/* keep it simple -- just like the MEGA here */
+	bootuart = 1;
+#endif
+
 	/* check if flash is programmed already, if not start bootloader anyway */
 	if(pgm_read_byte_near(0x0000) != 0xFF) {
 
@@ -379,7 +393,7 @@ int main(void)
 
 	/* initialize UART(s) depending on CPU defined */
 	/* Zigduino uses the same setup */
-#if defined(__AVR_ATmega128__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega128RFA1__)
+#if defined(__AVR_ATmega128__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega128RFA1__) || defined(__AVR_ATmega644RFR2__)
 	if(bootuart == 1) {
 		UBRR0L = (uint8_t)(F_CPU/(BAUD_RATE*16L)-1);
 		UBRR0H = (F_CPU/(BAUD_RATE*16L)-1) >> 8;
@@ -433,7 +447,7 @@ int main(void)
 	UCSRB = _BV(TXEN)|_BV(RXEN);
 #endif
 
-#if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega128RFA1__)
+#if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega128RFA1__) || defined(__AVR_ATmega644RFR2__)
 	/* Enable internal pull-up resistor on pin D0 (RX), in order
 	to supress line noise that prevents the bootloader from
 	timing out (DAM: 20070509) */
@@ -449,7 +463,7 @@ int main(void)
 
 
 	/* flash onboard LED to signal entering of bootloader */
-#if defined(__AVR_ATmega128__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega128RFA1__)
+#if defined(__AVR_ATmega128__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega128RFA1__) || defined(__AVR_ATmega644RFR2__)
 	// 4x for UART0, 5x for UART1
 	flash_led(NUM_LED_FLASHES + bootuart);
 #else
@@ -611,7 +625,7 @@ int main(void)
 				/* if ((length.byte[0] & 0x01) == 0x01) length.word++;	//Even up an odd number of bytes */
 				if ((length.byte[0] & 0x01)) length.word++;	//Even up an odd number of bytes
 				cli();					//Disable interrupts, just to be sure
-#if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega1281__) || defined(__AVR_ATmega128RFA1__)
+#if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega1281__) || defined(__AVR_ATmega128RFA1__) || defined(__AVR_ATmega644RFR2__)
 				while(bit_is_set(EECR,EEPE));			//Wait for previous EEPROM writes to complete
 #else
 				while(bit_is_set(EECR,EEWE));			//Wait for previous EEPROM writes to complete
@@ -712,7 +726,7 @@ int main(void)
 					 "clr	__zero_reg__	\n\t"	//restore zero register
 #if defined __AVR_ATmega168__  || __AVR_ATmega328P__ || __AVR_ATmega128__ || __AVR_ATmega1280__ || __AVR_ATmega1281__  
 					 : "=m" (SPMCSR) : "M" (PAGE_SIZE) : "r0","r16","r17","r24","r25","r28","r29","r30","r31"
-#elif defined __AVR_ATmega128RFA1__
+#elif defined __AVR_ATmega128RFA1__ || __AVR_ATmega644RFR2__
 					 : "=m" (SPMCSR) : "M" (PAGE_SIZE) : "r0","r16","r17","r24","r25","r28","r29","r30","r31"
 #else
 					 : "=m" (SPMCR) : "M" (PAGE_SIZE) : "r0","r16","r17","r24","r25","r28","r29","r30","r31"
@@ -817,6 +831,8 @@ int main(void)
 			welcome = "ATmegaBOOT / Arduino Mega - (C) Arduino LLC - 090930\n\r";
 #elif  defined __AVR_ATmega128RFA1__
 			welcome = "ATmegaBOOT / Zigduino - (C) Logos Electromechanical - 100406\n\r";		
+#elif  defined __AVR_ATmega644RFR2__
+			welcome = "ATmegaBOOT / Sparrow - (C) clkdiv8 - 081316\n\r";	
 #endif
 
 			/* turn on LED */
@@ -954,7 +970,7 @@ void puthex(char ch) {
 
 void putch(char ch)
 {
-#if defined(__AVR_ATmega128__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega128RFA1__)
+#if defined(__AVR_ATmega128__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega128RFA1__)  || defined(__AVR_ATmega644RFR2__)
 	if(bootuart == 1) {
 		while (!(UCSR0A & _BV(UDRE0)));
 		UDR0 = ch;
@@ -976,7 +992,7 @@ void putch(char ch)
 
 char getch(void)
 {
-#if defined(__AVR_ATmega128__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega128RFA1__)
+#if defined(__AVR_ATmega128__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega128RFA1__)  || defined(__AVR_ATmega644RFR2__)
 	uint32_t count = 0;
 	if(bootuart == 1) {
 		while(!(UCSR0A & _BV(RXC0))) {
@@ -1029,7 +1045,7 @@ char getch(void)
 void getNch(uint8_t count)
 {
 	while(count--) {
-#if defined(__AVR_ATmega128__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega128RFA1__)
+#if defined(__AVR_ATmega128__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega128RFA1__)  || defined(__AVR_ATmega644RFR2__)
 		if(bootuart == 1) {
 			while(!(UCSR0A & _BV(RXC0)));
 			UDR0;
